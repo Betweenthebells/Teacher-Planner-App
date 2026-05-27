@@ -981,7 +981,7 @@ const TeacherDayPlanner = () => {
                               />
                               {todo.attachmentUrl && (
                                 
-                                  href={todo.attachmentUrl}
+                                 <ahref={todo.attachmentUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="mt-2 inline-block text-xs text-blue-600 hover:text-blue-800 underline"
