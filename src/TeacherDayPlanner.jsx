@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, BookOpen, Heart, Lightbulb, Save, Plus, Trash2, Menu, X, Flower2, Clock, MessageCircle } from 'lucide-react';
+import { Calendar, Heart, Lightbulb, Save, Plus, Trash2, Menu, X, Flower2, Clock } from 'lucide-react';
 
 const TeacherDayPlanner = () => {
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
