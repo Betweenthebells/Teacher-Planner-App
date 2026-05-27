@@ -34,6 +34,7 @@ const TeacherDayPlanner = () => {
   const [showCustomCategoryForm, setShowCustomCategoryForm] = useState(false);
   const [expandedTodoId, setExpandedTodoId] = useState(null);
 
+  // Motivational messages
   const motivationalMessages = [
     "You're making a difference in students' lives every single day.",
     "Small moments of kindness create lasting memories.",
@@ -47,6 +48,7 @@ const TeacherDayPlanner = () => {
     "You're stronger than the challenges you face.",
   ];
 
+  // Mindfulness activities
   const mindfulnessActivities = {
     teacher: [
       { title: "2-Minute Breathing", description: "Box breathing: 4 in, hold 4, out 4, hold 4. Repeat 4 times.", icon: "🌬️" },
@@ -66,6 +68,7 @@ const TeacherDayPlanner = () => {
     ],
   };
 
+  // Tips & Tricks
   const tipsAndTricks = [
     { category: "Classroom Management", text: "Use a visible timer for transitions. Students respond better when they know time limits." },
     { category: "Lesson Planning", text: "The 5-minute rule: Plan the first 5 minutes and last 5 minutes of each lesson carefully." },
@@ -77,6 +80,7 @@ const TeacherDayPlanner = () => {
     { category: "Time Management", text: "Batch similar tasks: Grading, emails, planning. Your brain works better in focus blocks." },
   ];
 
+  // Period templates
   const getPeriodDefaults = () => {
     const templates = {
       4: [
@@ -114,6 +118,7 @@ const TeacherDayPlanner = () => {
     return templates[periodCount] || templates[5];
   };
 
+  // Initialize or load data
   useEffect(() => {
     const saved = localStorage.getItem('teacherPlannerData');
     if (saved) {
@@ -122,10 +127,12 @@ const TeacherDayPlanner = () => {
     initializePeriods();
   }, []);
 
+  // Save data
   useEffect(() => {
     localStorage.setItem('teacherPlannerData', JSON.stringify(allData));
   }, [allData]);
 
+  // Initialize periods for current date
   const initializePeriods = () => {
     if (!allData[currentDate]) {
       const defaults = getPeriodDefaults();
@@ -149,62 +156,96 @@ const TeacherDayPlanner = () => {
         },
       }));
       setPeriods(newPeriods);
+      setBeforeSchool({ activities: '', notes: '' });
+      setAfterSchool({ activities: '', notes: '' });
+      setTodoItems([]);
     } else {
-      setPeriods(allData[currentDate].periods || []);
-      setBeforeSchool(allData[currentDate].beforeSchool || { activities: '', notes: '' });
-      setAfterSchool(allData[currentDate].afterSchool || { activities: '', notes: '' });
-      setTodoItems(allData[currentDate].todos || []);
+      const dateData = allData[currentDate];
+      setPeriods(dateData.periods || []);
+      setBeforeSchool(dateData.beforeSchool || { activities: '', notes: '' });
+      setAfterSchool(dateData.afterSchool || { activities: '', notes: '' });
+      setTodoItems(dateData.todos || []);
+    }
+    setSelectedPeriod(0);
+  };
+
+  // Handle date change
+  const handleDateChange = (e) => {
+    const newDate = e.target.value;
+    setCurrentDate(newDate);
+    if (allData[newDate]) {
+      const dateData = allData[newDate];
+      setPeriods(dateData.periods || []);
+      setBeforeSchool(dateData.beforeSchool || { activities: '', notes: '' });
+      setAfterSchool(dateData.afterSchool || { activities: '', notes: '' });
+      setTodoItems(dateData.todos || []);
+    } else {
+      initializePeriods();
     }
   };
 
-  useEffect(() => {
-    initializePeriods();
-  }, [currentDate, allData]);
-
-  const updatePeriod = (id, field, value) => {
-    const updated = periods.map(p => p.id === id ? { ...p, [field]: value } : p);
+  // Handle period change
+  const handlePeriodChange = (periodId, field, value) => {
+    const updated = periods.map(p =>
+      p.id === periodId ? { ...p, [field]: value } : p
+    );
     setPeriods(updated);
     setAllData(prev => ({
       ...prev,
       [currentDate]: {
-        ...prev[currentDate],
         periods: updated,
+        beforeSchool: prev[currentDate]?.beforeSchool || beforeSchool,
+        afterSchool: prev[currentDate]?.afterSchool || afterSchool,
       },
     }));
   };
 
-  const updateBeforeSchool = (field, value) => {
+  // Handle before school change
+  const handleBeforeSchoolChange = (field, value) => {
     const updated = { ...beforeSchool, [field]: value };
     setBeforeSchool(updated);
     setAllData(prev => ({
       ...prev,
       [currentDate]: {
-        ...prev[currentDate],
+        periods: prev[currentDate]?.periods || periods,
         beforeSchool: updated,
+        afterSchool: prev[currentDate]?.afterSchool || afterSchool,
       },
     }));
   };
 
-  const updateAfterSchool = (field, value) => {
+  // Handle after school change
+  const handleAfterSchoolChange = (field, value) => {
     const updated = { ...afterSchool, [field]: value };
     setAfterSchool(updated);
     setAllData(prev => ({
       ...prev,
       [currentDate]: {
-        ...prev[currentDate],
+        periods: prev[currentDate]?.periods || periods,
+        beforeSchool: prev[currentDate]?.beforeSchool || beforeSchool,
         afterSchool: updated,
       },
     }));
   };
 
-  const sendNotification = (title, options = {}) => {
-    if (notificationsEnabled && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification(title, options);
-      }
-    }
+  // Toggle header editing mode
+  const toggleHeaderEdit = (periodId) => {
+    const updated = periods.map(p =>
+      p.id === periodId ? { ...p, editingHeader: !p.editingHeader } : p
+    );
+    setPeriods(updated);
+    setAllData(prev => ({
+      ...prev,
+      [currentDate]: {
+        periods: updated,
+        beforeSchool: prev[currentDate]?.beforeSchool || beforeSchool,
+        afterSchool: prev[currentDate]?.afterSchool || afterSchool,
+        todos: prev[currentDate]?.todos || todoItems,
+      },
+    }));
   };
 
+  // Add todo item
   const addTodoItem = () => {
     if (newTodoText.trim()) {
       const newTodo = {
@@ -220,36 +261,61 @@ const TeacherDayPlanner = () => {
         notes: '',
         attachmentUrl: '',
       };
-
-      if (newTodoRecurring === 'daily') {
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(newTodoDueDate);
-          date.setDate(date.getDate() + i);
-          setTodoItems(prev => [...prev, { ...newTodo, id: Math.random(), dueDate: date.toISOString().split('T')[0] }]);
+      
+      const todosToAdd = [newTodo];
+      
+      // Handle recurring tasks - create instances for next occurrences
+      if (newTodoRecurring === 'daily' && newTodoDueDate) {
+        for (let i = 1; i <= 7; i++) {
+          const nextDate = new Date(newTodoDueDate);
+          nextDate.setDate(nextDate.getDate() + i);
+          todosToAdd.push({
+            ...newTodo,
+            id: Math.random(),
+            dueDate: nextDate.toISOString().split('T')[0],
+          });
         }
-      } else if (newTodoRecurring === 'weekly') {
-        for (let i = 0; i < 4; i++) {
-          const date = new Date(newTodoDueDate);
-          date.setDate(date.getDate() + i * 7);
-          setTodoItems(prev => [...prev, { ...newTodo, id: Math.random(), dueDate: date.toISOString().split('T')[0] }]);
+      } else if (newTodoRecurring === 'weekly' && newTodoDueDate) {
+        for (let i = 1; i <= 4; i++) {
+          const nextDate = new Date(newTodoDueDate);
+          nextDate.setDate(nextDate.getDate() + (i * 7));
+          todosToAdd.push({
+            ...newTodo,
+            id: Math.random(),
+            dueDate: nextDate.toISOString().split('T')[0],
+          });
         }
-      } else {
-        setTodoItems(prev => [...prev, newTodo]);
       }
-
+      
+      const updated = [...todoItems, ...todosToAdd];
+      setTodoItems(updated);
+      setAllData(prev => ({
+        ...prev,
+        [currentDate]: {
+          periods: prev[currentDate]?.periods || periods,
+          beforeSchool: prev[currentDate]?.beforeSchool || beforeSchool,
+          afterSchool: prev[currentDate]?.afterSchool || afterSchool,
+          todos: updated,
+        },
+      }));
       setNewTodoText('');
       setNewTodoDueDate('');
       setNewTodoPriority('medium');
       setNewTodoCategory('materials');
       setNewTodoRecurring('none');
+      setNewTodoReminderTime('09:00');
       setShowTodoForm(false);
-      sendNotification('To-Do Added!', { body: newTodoText });
+      
+      sendNotification('To Do Added', {
+        body: `${newTodoText} (${newTodoCategory})`,
+      });
     }
   };
 
-  const toggleTodoComplete = (id) => {
+  // Toggle todo completion
+  const toggleTodoComplete = (todoId) => {
     const updated = todoItems.map(t =>
-      t.id === id ? { ...t, completed: !t.completed } : t
+      t.id === todoId ? { ...t, completed: !t.completed } : t
     );
     setTodoItems(updated);
     setAllData(prev => ({
@@ -263,8 +329,9 @@ const TeacherDayPlanner = () => {
     }));
   };
 
-  const deleteTodoItem = (id) => {
-    const updated = todoItems.filter(t => t.id !== id);
+  // Delete todo item
+  const deleteTodoItem = (todoId) => {
+    const updated = todoItems.filter(t => t.id !== todoId);
     setTodoItems(updated);
     setAllData(prev => ({
       ...prev,
@@ -277,6 +344,60 @@ const TeacherDayPlanner = () => {
     }));
   };
 
+  // Request notification permission
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      if (Notification.permission === 'granted') {
+        setNotificationsEnabled(true);
+      } else if (Notification.permission !== 'denied') {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          setNotificationsEnabled(true);
+          new Notification('Teacher Planner', {
+            body: 'Notifications enabled! You\'ll receive reminders for your classes and activities.',
+            icon: '📚',
+          });
+        }
+      }
+    }
+  };
+
+  // Send notification
+  const sendNotification = (title, options = {}) => {
+    if (notificationsEnabled && 'Notification' in window) {
+      new Notification(title, {
+        icon: '📚',
+        ...options,
+      });
+    }
+  };
+
+  // Get filtered todos
+  const getFilteredTodos = () => {
+    return todoItems.filter(todo => {
+      const matchCategory = todoFilterCategory === 'all' || todo.category === todoFilterCategory;
+      const matchPriority = todoFilterPriority === 'all' || todo.priority === todoFilterPriority;
+      return matchCategory && matchPriority;
+    });
+  };
+
+  // Todo templates
+  const todoTemplates = [
+    { text: 'Prepare materials for class', category: 'materials', priority: 'high' },
+    { text: 'Grade assignments', category: 'grading', priority: 'high' },
+    { text: 'Update gradebook', category: 'grading', priority: 'medium' },
+    { text: 'Prepare lesson plans', category: 'planning', priority: 'high' },
+    { text: 'Create assessment', category: 'planning', priority: 'medium' },
+    { text: 'Collect parent signatures', category: 'admin', priority: 'medium' },
+    { text: 'Submit attendance reports', category: 'admin', priority: 'high' },
+    { text: 'Prepare report cards', category: 'admin', priority: 'high' },
+    { text: 'Email parents about progress', category: 'communication', priority: 'medium' },
+    { text: 'Prepare parent-teacher conference notes', category: 'communication', priority: 'high' },
+    { text: 'Copy handouts', category: 'materials', priority: 'medium' },
+    { text: 'Order supplies', category: 'materials', priority: 'low' },
+  ];
+
+  // Apply template
   const applyTemplate = (template) => {
     setNewTodoText(template.text);
     setNewTodoCategory(template.category);
@@ -284,6 +405,7 @@ const TeacherDayPlanner = () => {
     setShowTodoForm(true);
   };
 
+  // Add custom category
   const addCustomCategory = () => {
     if (newCustomCategory.trim() && !customCategories.includes(newCustomCategory.toLowerCase())) {
       setCustomCategories([...customCategories, newCustomCategory.toLowerCase()]);
@@ -293,6 +415,7 @@ const TeacherDayPlanner = () => {
     }
   };
 
+  // Update todo notes
   const updateTodoNotes = (todoId, notes) => {
     const updated = todoItems.map(t =>
       t.id === todoId ? { ...t, notes } : t
@@ -309,6 +432,7 @@ const TeacherDayPlanner = () => {
     }));
   };
 
+  // Update todo attachment
   const updateTodoAttachment = (todoId, url) => {
     const updated = todoItems.map(t =>
       t.id === todoId ? { ...t, attachmentUrl: url } : t
@@ -325,6 +449,7 @@ const TeacherDayPlanner = () => {
     }));
   };
 
+  // Get task statistics
   const getTaskStats = () => {
     const totalTodos = todoItems.length;
     const completedTodos = todoItems.filter(t => t.completed).length;
@@ -344,6 +469,7 @@ const TeacherDayPlanner = () => {
     };
   };
 
+  // Bulk mark as complete
   const bulkMarkComplete = (category = null) => {
     const updated = todoItems.map(t => {
       if (!t.completed && (!category || t.category === category)) {
@@ -364,6 +490,7 @@ const TeacherDayPlanner = () => {
     sendNotification('Tasks Marked Complete!', { body: 'Keep up the great work!' });
   };
 
+  // Export to calendar
   const exportToCalendar = (todo) => {
     if (todo.dueDate) {
       const startDate = new Date(todo.dueDate);
@@ -383,124 +510,152 @@ const TeacherDayPlanner = () => {
     }
   };
 
-  const requestNotificationPermission = async () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      const permission = await Notification.requestPermission();
-      setNotificationsEnabled(permission === 'granted');
-    } else {
-      setNotificationsEnabled(!notificationsEnabled);
-    }
+  // Change period count
+  const changePeriodCount = (count) => {
+    setPeriodCount(count);
+    const defaults = {
+      4: [
+        { name: 'Period 1', time: '9:00 - 10:00', subject: '' },
+        { name: 'Period 2', time: '10:00 - 11:00', subject: '' },
+        { name: 'Break', time: '11:00 - 11:30', subject: '' },
+        { name: 'Period 3', time: '11:30 - 12:30', subject: '' },
+      ],
+      5: [
+        { name: 'Period 1', time: '9:00 - 9:50', subject: '' },
+        { name: 'Period 2', time: '9:50 - 10:40', subject: '' },
+        { name: 'Period 3', time: '10:40 - 11:30', subject: '' },
+        { name: 'Lunch', time: '11:30 - 12:10', subject: '' },
+        { name: 'Period 4', time: '12:10 - 1:00', subject: '' },
+      ],
+      6: [
+        { name: 'Period 1', time: '8:30 - 9:15', subject: '' },
+        { name: 'Period 2', time: '9:15 - 10:00', subject: '' },
+        { name: 'Period 3', time: '10:00 - 10:45', subject: '' },
+        { name: 'Break', time: '10:45 - 11:00', subject: '' },
+        { name: 'Period 4', time: '11:00 - 11:45', subject: '' },
+        { name: 'Period 5', time: '11:45 - 12:30', subject: '' },
+      ],
+      8: [
+        { name: 'Period 1', time: '8:30 - 9:15', subject: '' },
+        { name: 'Period 2', time: '9:15 - 10:00', subject: '' },
+        { name: 'Period 3', time: '10:00 - 10:45', subject: '' },
+        { name: 'Lunch 1', time: '10:45 - 11:25', subject: '' },
+        { name: 'Period 4', time: '11:25 - 12:10', subject: '' },
+        { name: 'Period 5', time: '12:10 - 12:55', subject: '' },
+        { name: 'Lunch 2', time: '12:55 - 1:35', subject: '' },
+        { name: 'Period 6', time: '1:35 - 2:20', subject: '' },
+      ],
+    };
+    const newPeriods = defaults[count].map(period => ({
+      id: Math.random(),
+      name: period.name,
+      time: period.time,
+      subject: period.subject,
+      lessonNotes: '',
+      studentNotes: '',
+      reflection: '',
+      editingHeader: false,
+    }));
+    setPeriods(newPeriods);
+    setAllData(prev => ({
+      ...prev,
+      [currentDate]: {
+        periods: newPeriods,
+        beforeSchool: prev[currentDate]?.beforeSchool || beforeSchool,
+        afterSchool: prev[currentDate]?.afterSchool || afterSchool,
+      },
+    }));
   };
 
-  const categoryEmoji = {
-    materials: '📦',
-    grading: '✏️',
-    planning: '📋',
-    admin: '📋',
-    communication: '💬',
-  };
-
-  const priorityColor = {
-    high: 'bg-red-50 border-l-red-500',
-    medium: 'bg-yellow-50 border-l-yellow-500',
-    low: 'bg-green-50 border-l-green-500',
-  };
-
-  const templates = [
-    { text: 'Prepare materials for class', category: 'materials', priority: 'high' },
-    { text: 'Grade assignments', category: 'grading', priority: 'high' },
-    { text: 'Update gradebook', category: 'grading', priority: 'medium' },
-    { text: 'Prepare lesson plans', category: 'planning', priority: 'high' },
-    { text: 'Create assessment', category: 'planning', priority: 'medium' },
-    { text: 'Collect parent signatures', category: 'admin', priority: 'medium' },
-    { text: 'Submit attendance reports', category: 'admin', priority: 'high' },
-    { text: 'Prepare report cards', category: 'admin', priority: 'high' },
-    { text: 'Email parents about progress', category: 'communication', priority: 'medium' },
-    { text: 'Prepare parent-teacher conference notes', category: 'planning', priority: 'high' },
-    { text: 'Copy handouts', category: 'materials', priority: 'medium' },
-    { text: 'Order supplies', category: 'admin', priority: 'low' },
-  ];
-
-  const filteredTodos = todoItems.filter(todo => {
-    const categoryMatch = todoFilterCategory === 'all' || todo.category === todoFilterCategory;
-    const priorityMatch = todoFilterPriority === 'all' || todo.priority === todoFilterPriority;
-    return categoryMatch && priorityMatch;
-  });
+  const dailyMotivation = motivationalMessages[new Date().getDate() % motivationalMessages.length];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#faf8f3' }}>
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-3xl font-bold" style={{ color: '#8b6f47' }}>🔔 Between the Bells Teacher Planner</h1>
-          
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex gap-6">
-            <button
-              onClick={() => setActiveTab('planner')}
-              className={`font-semibold transition ${activeTab === 'planner' ? 'text-amber-600' : 'text-gray-600'}`}
-            >
-              📅 Daily Planner
-            </button>
-            <button
-              onClick={() => setActiveTab('mindfulness')}
-              className={`font-semibold transition ${activeTab === 'mindfulness' ? 'text-amber-600' : 'text-gray-600'}`}
-            >
-              🌸 Mindfulness
-            </button>
-            <button
-              onClick={() => setActiveTab('tips')}
-              className={`font-semibold transition ${activeTab === 'tips' ? 'text-amber-600' : 'text-gray-600'}`}
-            >
-              💡 Tips & Tricks
-            </button>
-          </nav>
-
-          {/* Mobile Menu */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden text-gray-700"
-          >
-            {sidebarOpen ? <X size={28} /> : <Menu size={28} />}
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #faf8f3 0%, #f0e8df 100%)' }}>
+      {/* Mobile Sidebar */}
+      <div
+        className={`fixed inset-0 z-40 lg:hidden transition-opacity ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setSidebarOpen(false)}
+        style={{ background: 'rgba(0,0,0,0.5)' }}
+      />
+      
+      <div className={`fixed left-0 top-0 h-full w-64 z-50 transform transition-transform lg:hidden bg-white shadow-lg ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6">
+          <button onClick={() => setSidebarOpen(false)} className="float-right">
+            <X size={24} />
           </button>
+          <h2 className="text-xl font-bold mb-6 mt-4">Navigation</h2>
+          <nav className="space-y-2">
+            {[
+              { name: 'Daily Planner', id: 'planner', icon: Calendar },
+              { name: 'Mindfulness', id: 'mindfulness', icon: Flower2 },
+              { name: 'Tips & Tricks', id: 'tips', icon: Lightbulb },
+            ].map(({ name, id, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setActiveTab(id);
+                  setSidebarOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2 rounded-lg transition ${
+                  activeTab === id
+                    ? 'bg-amber-100 text-amber-900 font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="inline mr-2" size={18} /> {name}
+              </button>
+            ))}
+          </nav>
         </div>
+      </div>
 
-        {/* Mobile Navigation */}
-        {sidebarOpen && (
-          <div className="md:hidden bg-gray-50 border-t">
+      {/* Header */}
+      <header className="bg-white shadow-md sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => { setActiveTab('planner'); setSidebarOpen(false); }}
-              className={`block w-full text-left px-4 py-2 ${activeTab === 'planner' ? 'bg-amber-100' : ''}`}
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 hover:bg-gray-100 rounded"
             >
-              📅 Daily Planner
+              <Menu size={24} />
             </button>
-            <button
-              onClick={() => { setActiveTab('mindfulness'); setSidebarOpen(false); }}
-              className={`block w-full text-left px-4 py-2 ${activeTab === 'mindfulness' ? 'bg-amber-100' : ''}`}
-            >
-              🌸 Mindfulness
-            </button>
-            <button
-              onClick={() => { setActiveTab('tips'); setSidebarOpen(false); }}
-              className={`block w-full text-left px-4 py-2 ${activeTab === 'tips' ? 'bg-amber-100' : ''}`}
-            >
-              💡 Tips & Tricks
-            </button>
+            <h1 className="text-3xl font-bold" style={{ color: '#8b6f47' }}>🔔 Between the Bells Teacher Planner</h1>
           </div>
-        )}
+          <div className="hidden lg:flex gap-4">
+            {[
+              { name: 'Daily Planner', id: 'planner', icon: Calendar },
+              { name: 'Mindfulness', id: 'mindfulness', icon: Flower2 },
+              { name: 'Tips & Tricks', id: 'tips', icon: Lightbulb },
+            ].map(({ name, id, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`px-4 py-2 rounded-lg transition font-medium ${
+                  activeTab === id
+                    ? 'bg-amber-100 text-amber-900'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="inline mr-2" size={18} /> {name}
+              </button>
+            ))}
+          </div>
+        </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6">
-        {/* Motivational Message */}
-        {showMotivation && (
-          <div className="mb-6 p-6 bg-gradient-to-r from-pink-100 to-orange-100 rounded-xl border-2 border-pink-200">
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Motivational Banner */}
+        {showMotivation && activeTab === 'planner' && (
+          <div className="mb-6 p-6 rounded-xl shadow-md" style={{ background: 'linear-gradient(135deg, #e8d5b7 0%, #d4c5a9 100%)' }}>
             <div className="flex justify-between items-start">
-              <p className="text-lg font-semibold text-gray-800">
-                {motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)]}
-              </p>
+              <div>
+                <p className="text-sm font-semibold text-amber-900 uppercase tracking-wide">Today's Thought</p>
+                <p className="text-xl text-amber-950 font-medium mt-2">✨ {dailyMotivation}</p>
+              </div>
               <button
                 onClick={() => setShowMotivation(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-amber-800 hover:text-amber-950"
               >
                 <X size={20} />
               </button>
@@ -510,29 +665,29 @@ const TeacherDayPlanner = () => {
 
         {/* Daily Planner Tab */}
         {activeTab === 'planner' && (
-          <div>
-            {/* Date and Period Selection */}
-            <div className="bg-white p-6 rounded-xl shadow-md mb-6">
-              <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
+          <div className="space-y-6">
+            {/* Date & Period Controls */}
+            <div className="bg-white p-6 rounded-xl shadow-md">
+              <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="font-bold text-gray-700">Select Date:</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Select Date</label>
                   <input
                     type="date"
                     value={currentDate}
-                    onChange={(e) => setCurrentDate(e.target.value)}
-                    className="mt-2 px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-amber-500"
+                    onChange={handleDateChange}
+                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-gray-700">Periods:</label>
-                  <div className="flex gap-2 mt-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Number of Periods</label>
+                  <div className="flex gap-3">
                     {[4, 5, 6, 8].map(num => (
                       <button
                         key={num}
-                        onClick={() => setPeriodCount(num)}
-                        className={`px-4 py-2 rounded-lg font-bold transition ${
+                        onClick={() => changePeriodCount(num)}
+                        className={`px-6 py-2 rounded-lg font-bold transition ${
                           periodCount === num
-                            ? 'bg-amber-600 text-white'
+                            ? 'bg-amber-500 text-white'
                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                       >
@@ -544,153 +699,120 @@ const TeacherDayPlanner = () => {
               </div>
             </div>
 
-            {/* Before School */}
-            <div className="bg-gradient-to-r from-yellow-100 to-yellow-50 p-6 rounded-xl shadow-md mb-6 border-2 border-yellow-200">
-              <h2 className="text-xl font-bold mb-4">🌅 Before School</h2>
-              <textarea
-                value={beforeSchool.activities}
-                onChange={(e) => updateBeforeSchool('activities', e.target.value)}
-                placeholder="Activities, clubs, sports, arts..."
-                className="w-full p-3 border border-yellow-300 rounded-lg mb-4 resize-none h-24 focus:outline-none focus:border-yellow-500"
-              />
-              <textarea
-                value={beforeSchool.notes}
-                onChange={(e) => updateBeforeSchool('notes', e.target.value)}
-                placeholder="Notes..."
-                className="w-full p-3 border border-yellow-300 rounded-lg resize-none h-20 focus:outline-none focus:border-yellow-500"
-              />
-            </div>
-
-            {/* Periods */}
-            <div className="space-y-4 mb-6">
-              {periods.map((period, idx) => (
-                <div key={period.id} className="bg-white p-6 rounded-xl shadow-md border-l-4 border-amber-500">
-                  {!period.editingHeader ? (
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-2xl font-bold text-gray-900">{period.name}</h3>
-                        <p className="text-sm text-gray-600">{period.time}</p>
-                        {period.subject && <p className="text-sm font-semibold text-amber-600">{period.subject}</p>}
-                      </div>
-                      <button
-                        onClick={() => updatePeriod(period.id, 'editingHeader', true)}
-                        className="text-amber-600 hover:text-amber-800 font-bold text-lg"
-                      >
-                        ✏️
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 p-4 rounded-lg mb-4 space-y-3">
-                      <input
-                        type="text"
-                        value={period.name}
-                        onChange={(e) => updatePeriod(period.id, 'name', e.target.value)}
-                        placeholder="Period name"
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-amber-500"
-                      />
-                      <input
-                        type="text"
-                        value={period.time}
-                        onChange={(e) => updatePeriod(period.id, 'time', e.target.value)}
-                        placeholder="Time (e.g., 9:00 - 10:00)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-amber-500"
-                      />
-                      <input
-                        type="text"
-                        value={period.subject}
-                        onChange={(e) => updatePeriod(period.id, 'subject', e.target.value)}
-                        placeholder="Subject/Class"
-                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-amber-500"
-                      />
-                      <button
-                        onClick={() => updatePeriod(period.id, 'editingHeader', false)}
-                        className="w-full px-3 py-2 bg-amber-600 text-white rounded font-bold hover:bg-amber-700"
-                      >
-                        Done
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="font-bold text-gray-700 text-sm">Lesson Notes:</label>
-                      <textarea
-                        value={period.lessonNotes}
-                        onChange={(e) => updatePeriod(period.id, 'lessonNotes', e.target.value)}
-                        placeholder="What will you teach?"
-                        className="w-full mt-2 p-3 border border-gray-300 rounded-lg resize-none h-24 focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 text-sm">Student Notes:</label>
-                      <textarea
-                        value={period.studentNotes}
-                        onChange={(e) => updatePeriod(period.id, 'studentNotes', e.target.value)}
-                        placeholder="Observations, progress, concerns..."
-                        className="w-full mt-2 p-3 border border-gray-300 rounded-lg resize-none h-24 focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 text-sm">Reflection:</label>
-                      <textarea
-                        value={period.reflection}
-                        onChange={(e) => updatePeriod(period.id, 'reflection', e.target.value)}
-                        placeholder="How did it go? What worked well?"
-                        className="w-full mt-2 p-3 border border-gray-300 rounded-lg resize-none h-24 focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* After School */}
-            <div className="bg-gradient-to-r from-orange-100 to-red-50 p-6 rounded-xl shadow-md mb-6 border-2 border-orange-200">
-              <h2 className="text-xl font-bold mb-4">🌆 After School</h2>
-              <textarea
-                value={afterSchool.activities}
-                onChange={(e) => updateAfterSchool('activities', e.target.value)}
-                placeholder="Activities, clubs, meetings, duties..."
-                className="w-full p-3 border border-orange-300 rounded-lg mb-4 resize-none h-24 focus:outline-none focus:border-orange-500"
-              />
-              <textarea
-                value={afterSchool.notes}
-                onChange={(e) => updateAfterSchool('notes', e.target.value)}
-                placeholder="Notes..."
-                className="w-full p-3 border border-orange-300 rounded-lg resize-none h-20 focus:outline-none focus:border-orange-500"
-              />
-            </div>
-
-            {/* To-Do Section */}
-            <div className="bg-white p-8 rounded-xl shadow-md">
-              <h2 className="text-2xl font-bold mb-6" style={{ color: '#8b6f47' }}>✓ To-Do List</h2>
-
-              {/* Notification Toggle */}
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200 flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={notificationsEnabled}
-                  onChange={requestNotificationPermission}
-                  className="w-5 h-5 cursor-pointer"
-                />
-                <label className="font-semibold text-blue-900">Enable browser notifications</label>
+            {/* To Do Section */}
+            <div className="bg-white p-6 rounded-xl shadow-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: '#8b6f47' }}>
+                  ✓ To Do List
+                </h2>
+                <button
+                  onClick={() => requestNotificationPermission()}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                    notificationsEnabled
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                  }`}
+                >
+                  {notificationsEnabled ? '🔔 Notifications On' : '🔕 Enable Notifications'}
+                </button>
               </div>
 
               {/* Quick Templates */}
-              <div className="mb-6 p-4 bg-blue-100 rounded-lg">
-                <p className="text-sm font-bold text-blue-900 mb-3">🚀 Quick Add (Templates):</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {templates.map((template, idx) => (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                <p className="text-sm font-semibold text-blue-900 mb-2">Quick Templates:</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {todoTemplates.slice(0, 6).map((template, idx) => (
                     <button
                       key={idx}
                       onClick={() => applyTemplate(template)}
-                      className="text-xs px-2 py-1 bg-white text-blue-900 rounded border border-blue-300 hover:bg-blue-50 font-semibold transition"
+                      className="text-xs px-3 py-2 bg-white border border-blue-300 rounded hover:bg-blue-100 transition text-blue-900 font-medium"
                     >
                       {template.text}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* Add Todo Form */}
+              {showTodoForm && (
+                <div className="mb-4 p-4 bg-amber-50 rounded-lg border-2 border-amber-200">
+                  <div className="space-y-3">
+                    <textarea
+                      value={newTodoText}
+                      onChange={(e) => setNewTodoText(e.target.value)}
+                      placeholder="What needs to be done?"
+                      className="w-full px-4 py-2 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 resize-none h-20"
+                    />
+                    
+                    {/* Form Fields Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      <select
+                        value={newTodoCategory}
+                        onChange={(e) => setNewTodoCategory(e.target.value)}
+                        className="px-3 py-2 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 text-sm"
+                      >
+                        <option value="materials">📦 Materials</option>
+                        <option value="grading">✏️ Grading</option>
+                        <option value="planning">📋 Planning</option>
+                        <option value="admin">📋 Admin</option>
+                        <option value="communication">💬 Communication</option>
+                      </select>
+
+                      <select
+                        value={newTodoPriority}
+                        onChange={(e) => setNewTodoPriority(e.target.value)}
+                        className="px-3 py-2 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 text-sm"
+                      >
+                        <option value="low">🟢 Low</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="high">🔴 High</option>
+                      </select>
+
+                      <select
+                        value={newTodoRecurring}
+                        onChange={(e) => setNewTodoRecurring(e.target.value)}
+                        className="px-3 py-2 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 text-sm"
+                      >
+                        <option value="none">No Repeat</option>
+                        <option value="daily">🔄 Daily</option>
+                        <option value="weekly">🔄 Weekly</option>
+                      </select>
+                    </div>
+
+                    {/* Date and Time */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={newTodoDueDate}
+                        onChange={(e) => setNewTodoDueDate(e.target.value)}
+                        className="px-4 py-2 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                      <input
+                        type="time"
+                        value={newTodoReminderTime}
+                        onChange={(e) => setNewTodoReminderTime(e.target.value)}
+                        className="px-4 py-2 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={addTodoItem}
+                        className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600 transition"
+                      >
+                        Add To Do
+                      </button>
+                      <button
+                        onClick={() => setShowTodoForm(false)}
+                        className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Task Statistics */}
               {todoItems.length > 0 && (
@@ -764,127 +886,50 @@ const TeacherDayPlanner = () => {
               </div>
 
               {/* Filters */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <label className="text-sm font-bold text-gray-700">Filter by Category:</label>
-                  <select
-                    value={todoFilterCategory}
-                    onChange={(e) => setTodoFilterCategory(e.target.value)}
-                    className="w-full mt-2 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="all">All Categories</option>
-                    {customCategories.map(cat => (
-                      <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="text-sm font-bold text-gray-700">Filter by Priority:</label>
-                  <select
-                    value={todoFilterPriority}
-                    onChange={(e) => setTodoFilterPriority(e.target.value)}
-                    className="w-full mt-2 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="all">All Priorities</option>
-                    <option value="high">🔴 High</option>
-                    <option value="medium">🟡 Medium</option>
-                    <option value="low">🟢 Low</option>
-                  </select>
-                </div>
+              <div className="mb-4 flex gap-2 flex-wrap">
+                <select
+                  value={todoFilterCategory}
+                  onChange={(e) => setTodoFilterCategory(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="materials">📦 Materials</option>
+                  <option value="grading">✏️ Grading</option>
+                  <option value="planning">📋 Planning</option>
+                  <option value="admin">📋 Admin</option>
+                  <option value="communication">💬 Communication</option>
+                </select>
+
+                <select
+                  value={todoFilterPriority}
+                  onChange={(e) => setTodoFilterPriority(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="high">🔴 High</option>
+                  <option value="medium">🟡 Medium</option>
+                  <option value="low">🟢 Low</option>
+                </select>
               </div>
 
-              {/* Add To-Do Form */}
-              {!showTodoForm ? (
-                <button
-                  onClick={() => setShowTodoForm(true)}
-                  className="w-full px-4 py-3 bg-amber-600 text-white rounded-lg font-bold hover:bg-amber-700 transition mb-6 flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} /> Add To-Do Item
-                </button>
-              ) : (
-                <div className="bg-yellow-50 p-6 rounded-lg border-2 border-yellow-200 mb-6">
-                  <input
-                    type="text"
-                    value={newTodoText}
-                    onChange={(e) => setNewTodoText(e.target.value)}
-                    placeholder="What do you need to do?"
-                    className="w-full px-4 py-2 border border-yellow-300 rounded-lg mb-4 focus:outline-none focus:border-yellow-500"
-                  />
-
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <input
-                      type="date"
-                      value={newTodoDueDate}
-                      onChange={(e) => setNewTodoDueDate(e.target.value)}
-                      className="px-3 py-2 border border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500"
-                    />
-                    <input
-                      type="time"
-                      value={newTodoReminderTime}
-                      onChange={(e) => setNewTodoReminderTime(e.target.value)}
-                      className="px-3 py-2 border border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    <select
-                      value={newTodoPriority}
-                      onChange={(e) => setNewTodoPriority(e.target.value)}
-                      className="px-3 py-2 border border-yellow-300 rounded-lg text-sm focus:outline-none focus:border-yellow-500"
-                    >
-                      <option value="high">🔴 High</option>
-                      <option value="medium">🟡 Medium</option>
-                      <option value="low">🟢 Low</option>
-                    </select>
-
-                    <select
-                      value={newTodoCategory}
-                      onChange={(e) => setNewTodoCategory(e.target.value)}
-                      className="px-3 py-2 border border-yellow-300 rounded-lg text-sm focus:outline-none focus:border-yellow-500"
-                    >
-                      {customCategories.map(cat => (
-                        <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={newTodoRecurring}
-                      onChange={(e) => setNewTodoRecurring(e.target.value)}
-                      className="px-3 py-2 border border-yellow-300 rounded-lg text-sm focus:outline-none focus:border-yellow-500"
-                    >
-                      <option value="none">No Repeat</option>
-                      <option value="daily">🔄 Daily</option>
-                      <option value="weekly">🔄 Weekly</option>
-                    </select>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={addTodoItem}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition"
-                    >
-                      <Plus size={18} className="inline mr-2" /> Add To-Do
-                    </button>
-                    <button
-                      onClick={() => setShowTodoForm(false)}
-                      className="px-4 py-2 bg-gray-400 text-white rounded-lg font-bold hover:bg-gray-500 transition"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* To-Do Items */}
-              <div className="space-y-3">
-                {filteredTodos.length === 0 && todoItems.length > 0 ? (
-                  <p className="text-center text-gray-500 py-8">No items match your filters.</p>
-                ) : filteredTodos.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">No to-do items yet. Add one above!</p>
-                ) : (
-                  filteredTodos.map(todo => {
-                    const isDueToday = todo.dueDate === currentDate;
+              {/* Todo Items */}
+              {getFilteredTodos().length > 0 ? (
+                <div className="space-y-2 mb-4">
+                  {getFilteredTodos().map((todo) => {
                     const isOverdue = todo.dueDate && new Date(todo.dueDate) < new Date(currentDate) && !todo.completed;
+                    const isDueToday = todo.dueDate === currentDate;
+                    const categoryEmoji = {
+                      materials: '📦',
+                      grading: '✏️',
+                      planning: '📋',
+                      admin: '📋',
+                      communication: '💬',
+                    };
+                    const priorityColor = {
+                      high: 'bg-red-50 border-l-red-500',
+                      medium: 'bg-yellow-50 border-l-yellow-500',
+                      low: 'bg-green-50 border-l-green-500',
+                    };
 
                     return (
                       <div key={todo.id} className="mb-3">
@@ -977,9 +1022,10 @@ const TeacherDayPlanner = () => {
                                 value={todo.attachmentUrl || ''}
                                 onChange={(e) => updateTodoAttachment(todo.id, e.target.value)}
                                 placeholder="e.g., https://drive.google.com/... or https://docs.google.com/..."
-                             />
+                                className="w-full mt-1 p-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-400"
+                              />
                               {todo.attachmentUrl && (
-                                
+                                <a
                                   href={todo.attachmentUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -1001,134 +1047,185 @@ const TeacherDayPlanner = () => {
                         )}
                       </div>
                     );
-                  })
-                )}
+                  })}
+                </div>
+              ) : (
+                <p className="text-gray-600 text-sm mb-4">
+                  {todoItems.length === 0 ? 'No to-do items yet. Add one to get started!' : 'No items match your filters.'}
+                </p>
+              )}
+
+              {!showTodoForm && (
+                <button
+                  onClick={() => setShowTodoForm(true)}
+                  className="w-full px-4 py-2 bg-amber-100 text-amber-900 rounded-lg font-semibold hover:bg-amber-200 transition flex items-center justify-center gap-2"
+                >
+                  <Plus size={18} /> Add To Do Item
+                </button>
+              )}
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-md">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: '#8b6f47' }}>
+                🌅 Before School Activities
+              </h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Clubs, Sports, or Activities</label>
+                  <textarea
+                    value={beforeSchool.activities}
+                    onChange={(e) => handleBeforeSchoolChange('activities', e.target.value)}
+                    placeholder="e.g., Chess Club (7:30am), Math Club, Band Practice..."
+                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 resize-none h-24"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
+                  <textarea
+                    value={beforeSchool.notes}
+                    onChange={(e) => handleBeforeSchoolChange('notes', e.target.value)}
+                    placeholder="Any notes or reminders for before school..."
+                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 resize-none h-24"
+                  />
+                </div>
               </div>
             </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              {periods.map((period, idx) => (
+                <div
+                  key={period.id}
+                  className={`bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition hover:shadow-lg ${
+                    selectedPeriod === idx ? 'ring-3 ring-amber-400' : ''
+                  }`}
+                  onClick={() => setSelectedPeriod(idx)}
+                >
+                  {/* Editable Header */}
+                  <div className="bg-gradient-to-r from-amber-100 to-amber-50 p-4 border-b-2 border-amber-200">
+                    {period.editingHeader ? (
+                      <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={period.name}
+                            onChange={(e) => handlePeriodChange(period.id, 'name', e.target.value)}
+                            placeholder="Period name (e.g., Period 1, Math)"
+                            className="flex-1 px-3 py-2 border-2 border-amber-300 rounded-lg text-sm focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={period.time}
+                            onChange={(e) => handlePeriodChange(period.id, 'time', e.target.value)}
+                            placeholder="Time (e.g., 9:00 - 10:00)"
+                            className="flex-1 px-3 py-2 border-2 border-amber-300 rounded-lg text-sm focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={period.subject}
+                            onChange={(e) => handlePeriodChange(period.id, 'subject', e.target.value)}
+                            placeholder="Subject/Class (optional)"
+                            className="flex-1 px-3 py-2 border-2 border-amber-300 rounded-lg text-sm focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleHeaderEdit(period.id);
+                          }}
+                          className="w-full px-3 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    ) : (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-amber-900 flex justify-between items-start">
+                          <div>
+                            <Clock size={18} className="inline mr-2" />
+                            {period.name}
+                            {period.subject && <span className="text-sm font-normal text-amber-700 block mt-1">📚 {period.subject}</span>}
+                          </div>
+                          <button
+                            onClick={() => toggleHeaderEdit(period.id)}
+                            className="text-amber-700 hover:text-amber-900 p-1"
+                            title="Edit period details"
+                          >
+                            ✏️
+                          </button>
+                        </h3>
+                        {period.time && <p className="text-sm text-amber-800 mt-1">⏰ {period.time}</p>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {/* Lesson Notes */}
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 uppercase">Lesson Notes</label>
+                      <textarea
+                        value={period.lessonNotes}
+                        onChange={(e) => handlePeriodChange(period.id, 'lessonNotes', e.target.value)}
+                        placeholder="What will you teach?"
+                        className="w-full mt-1 p-2 text-sm border border-gray-300 rounded resize-none h-20 focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
 
-            {/* AI Lesson Planning Help Section */}
-            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-8 rounded-xl shadow-md mb-6">
-              <h2 className="text-2xl font-bold mb-6" style={{ color: '#4f46e5' }}>
-                🤖 AI Lesson Planning Help
+                    {/* Student Notes */}
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 uppercase">Student Notes</label>
+                      <textarea
+                        value={period.studentNotes}
+                        onChange={(e) => handlePeriodChange(period.id, 'studentNotes', e.target.value)}
+                        placeholder="Notes about student progress, concerns, wins..."
+                        className="w-full mt-1 p-2 text-sm border border-gray-300 rounded resize-none h-20 focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    {/* Reflection */}
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 uppercase">Reflection</label>
+                      <textarea
+                        value={period.reflection}
+                        onChange={(e) => handlePeriodChange(period.id, 'reflection', e.target.value)}
+                        placeholder="How did this period go? What worked well? What would you change?"
+                        className="w-full mt-1 p-2 text-sm border border-gray-300 rounded resize-none h-20 focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Auto-save indicator */}
+            <div className="text-center text-sm text-gray-600">
+              <Save size={16} className="inline mr-2" />
+              Auto-saved to your device
+            </div>
+
+            {/* After School Section */}
+            <div className="bg-white p-6 rounded-xl shadow-md">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: '#8b6f47' }}>
+                🌆 After School Activities
               </h2>
-              <p className="text-gray-700 mb-6">
-                Supercharge your lesson planning with AI assistance! Use these powerful tools to create lesson plans, generate ideas, develop assessments, and personalize learning activities.
-              </p>
-
-              <div className="grid md:grid-cols-3 gap-6">
-                {/* Claude AI */}
-                
-                  href="https://claude.ai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition transform"
-                >
-                  <div className="text-4xl mb-3">🧠</div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Claude AI</h3>
-                  <p className="text-sm text-gray-700 mb-4">
-                    Advanced AI assistant perfect for creating detailed lesson plans, writing rubrics, generating discussion questions, and developing differentiated learning activities.
-                  </p>
-                  <div className="flex gap-2">
-                    <span className="text-xs bg-indigo-100 text-indigo-900 px-3 py-1 rounded-full font-medium">Best for: Detailed Planning</span>
-                  </div>
-                  <button className="mt-4 w-full px-4 py-2 bg-indigo-500 text-white rounded-lg font-semibold hover:bg-indigo-600 transition">
-                    Launch Claude AI →
-                  </button>
-                </a>
-
-                {/* Google Gemini */}
-                
-                  href="https://gemini.google.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition transform"
-                >
-                  <div className="text-4xl mb-3">✨</div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Google Gemini</h3>
-                  <p className="text-sm text-gray-700 mb-4">
-                    Powerful AI tool for brainstorming lesson ideas, creating engaging content, writing student feedback, and generating creative project prompts.
-                  </p>
-                  <div className="flex gap-2">
-                    <span className="text-xs bg-blue-100 text-blue-900 px-3 py-1 rounded-full font-medium">Best for: Creative Ideas</span>
-                  </div>
-                  <button className="mt-4 w-full px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition">
-                    Launch Google Gemini →
-                  </button>
-                </a>
-
-                {/* ChatGPT */}
-                
-                  href="https://chatgpt.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition transform"
-                >
-                  <div className="text-4xl mb-3">💬</div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">ChatGPT</h3>
-                  <p className="text-sm text-gray-700 mb-4">
-                    Versatile AI assistant great for instant lesson planning, creating assessments, writing emails to parents, and providing quick answers to teaching questions.
-                  </p>
-                  <div className="flex gap-2">
-                    <span className="text-xs bg-green-100 text-green-900 px-3 py-1 rounded-full font-medium">Best for: Quick Help</span>
-                  </div>
-                  <button className="mt-4 w-full px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition">
-                    Launch ChatGPT →
-                  </button>
-                </a>
-              </div>
-
-              {/* AI Use Cases */}
-              <div className="mt-8 p-6 bg-white rounded-lg">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">💡 AI Can Help You With:</h3>
-                <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-700">
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Lesson Plans</strong> - Create detailed, scaffolded lesson sequences</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Learning Objectives</strong> - Write clear, measurable SMART goals</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Assessments</strong> - Design quizzes, tests, and rubrics</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Differentiation</strong> - Adapt content for diverse learners</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Engaging Activities</strong> - Generate interactive, hands-on tasks</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Parent Communication</strong> - Draft emails and progress reports</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Classroom Management</strong> - Strategies for behavior and engagement</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Content Explanations</strong> - Simple explanations of complex topics</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Discussion Questions</strong> - Higher-order thinking prompts</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Project Ideas</strong> - Cross-curricular, real-world projects</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Feedback</strong> - Personalized student comments and suggestions</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-indigo-500 font-bold">✓</span>
-                    <span><strong>Professional Development</strong> - Teaching tips and strategies</span>
-                  </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Clubs, Sports, or Activities</label>
+                  <textarea
+                    value={afterSchool.activities}
+                    onChange={(e) => handleAfterSchoolChange('activities', e.target.value)}
+                    placeholder="e.g., Drama Club (3:30pm), Basketball Practice, Debate Team..."
+                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 resize-none h-24"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
+                  <textarea
+                    value={afterSchool.notes}
+                    onChange={(e) => handleAfterSchoolChange('notes', e.target.value)}
+                    placeholder="Any notes or reminders for after school..."
+                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 resize-none h-24"
+                  />
                 </div>
               </div>
             </div>
@@ -1137,34 +1234,36 @@ const TeacherDayPlanner = () => {
 
         {/* Mindfulness Tab */}
         {activeTab === 'mindfulness' && (
-          <div>
-            <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
-              <Flower2 size={32} /> Mindfulness & Wellness
-            </h2>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-2xl font-bold mb-6 text-gray-900">🧘 For You (Teacher)</h3>
-                <div className="space-y-4">
-                  {mindfulnessActivities.teacher.map((activity, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-                      <h4 className="text-lg font-bold text-gray-900 mb-2">{activity.icon} {activity.title}</h4>
-                      <p className="text-gray-700">{activity.description}</p>
-                    </div>
-                  ))}
-                </div>
+          <div className="space-y-8">
+            {/* Teacher Mindfulness */}
+            <div>
+              <h2 className="text-2xl font-bold mb-4" style={{ color: '#8b6f47' }}>
+                <Heart className="inline mr-3" size={28} /> For You (Teacher)
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {mindfulnessActivities.teacher.map((activity, idx) => (
+                  <div key={idx} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
+                    <p className="text-4xl mb-3">{activity.icon}</p>
+                    <h3 className="font-bold text-lg mb-2">{activity.title}</h3>
+                    <p className="text-gray-700 text-sm">{activity.description}</p>
+                  </div>
+                ))}
               </div>
+            </div>
 
-              <div>
-                <h3 className="text-2xl font-bold mb-6 text-gray-900">👨‍👩‍👧‍👦 For Your Class</h3>
-                <div className="space-y-4">
-                  {mindfulnessActivities.class.map((activity, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-                      <h4 className="text-lg font-bold text-gray-900 mb-2">{activity.icon} {activity.title}</h4>
-                      <p className="text-gray-700">{activity.description}</p>
-                    </div>
-                  ))}
-                </div>
+            {/* Class Mindfulness */}
+            <div>
+              <h2 className="text-2xl font-bold mb-4" style={{ color: '#8b6f47' }}>
+                <Flower2 className="inline mr-3" size={28} /> For Your Class
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {mindfulnessActivities.class.map((activity, idx) => (
+                  <div key={idx} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
+                    <p className="text-4xl mb-3">{activity.icon}</p>
+                    <h3 className="font-bold text-lg mb-2">{activity.title}</h3>
+                    <p className="text-gray-700 text-sm">{activity.description}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1173,7 +1272,7 @@ const TeacherDayPlanner = () => {
         {/* Tips & Tricks Tab */}
         {activeTab === 'tips' && (
           <div>
-            <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
+            <h2 className="text-2xl font-bold mb-6" style={{ color: '#8b6f47' }}>
               <Lightbulb className="inline mr-3" size={28} /> Tips & Tricks
             </h2>
             <div className="grid md:grid-cols-2 gap-4">
@@ -1200,7 +1299,7 @@ const TeacherDayPlanner = () => {
 
           <div className="grid md:grid-cols-3 gap-6">
             {/* Claude AI */}
-            
+            <a
               href="https://claude.ai"
               target="_blank"
               rel="noopener noreferrer"
@@ -1220,7 +1319,7 @@ const TeacherDayPlanner = () => {
             </a>
 
             {/* Google Gemini */}
-            
+            <a
               href="https://gemini.google.com"
               target="_blank"
               rel="noopener noreferrer"
@@ -1240,7 +1339,7 @@ const TeacherDayPlanner = () => {
             </a>
 
             {/* ChatGPT */}
-            
+            <a
               href="https://chatgpt.com"
               target="_blank"
               rel="noopener noreferrer"
