@@ -977,11 +977,10 @@ const TeacherDayPlanner = () => {
                                 value={todo.attachmentUrl || ''}
                                 onChange={(e) => updateTodoAttachment(todo.id, e.target.value)}
                                 placeholder="e.g., https://drive.google.com/... or https://docs.google.com/..."
-                                className="w-full mt-1 p-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-400"
-                              />
+                             />
                               {todo.attachmentUrl && (
                                 
-                                 <ahref={todo.attachmentUrl}
+                                  href={todo.attachmentUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="mt-2 inline-block text-xs text-blue-600 hover:text-blue-800 underline"
