@@ -125,7 +125,7 @@ const TeacherDayPlanner = () => {
       setAllData(JSON.parse(saved));
     }
     initializePeriods();
-  }, []);
+  }, [currentDate, periodCount]);
 
   // Save data
   useEffect(() => {
