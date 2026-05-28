@@ -124,7 +124,6 @@ const TeacherDayPlanner = () => {
     if (saved) {
       setAllData(JSON.parse(saved));
     }
-    initializePeriods();
   }, []);
 
   // Save data
